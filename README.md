@@ -2,7 +2,7 @@
 
 <div align="center">
   <p>
-    <strong>All the magic from [nanoid][] but with a prefix</strong>
+    <strong>All the magic from nanoid but with a prefix</strong>
   </p>
   <p>Inspired by <a href="https://github.com/nikolay-govorov/nanoid">nanoid</a></p>
 </div>
@@ -34,15 +34,24 @@ cargo add prefix_id
 create_id!(MyEntityId, "id");
 
 let id = MyEntityId::new(); // => "id_1234567890avjfwdnfvqdp"
+
+// then you can use the impl methods
+
+id.as_str(); // => "id_1234567890avjfwdnfvqdp"
+let my_string: String = id.into();
+
+// you can also validate/convert it from string
+
+let str = "id_1234567890avjfwdnfvqdp";
+let id = MyEntityId::from_str(str).unwrap();
+
 ```
 
 ## License
 
 <sup>
-Licensed under either of <a href="LICENSE-APACHE">Apache License, Version
+Licensed under <a href="LICENSE-APACHE">Apache License, Version
 2.0</a> 
 </sup>
 
 <br>
-
-[nanoid]: https://github.com/nikolay-govorov/nanoid
