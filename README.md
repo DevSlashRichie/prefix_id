@@ -45,6 +45,11 @@ let my_string: String = id.into();
 let str = "id_1234567890avjfwdnfvqdp";
 let id = MyEntityId::from_str(str).unwrap();
 
+// you can optionally set the feature `serde` flag to serialize/deserialize
+
+let serialized = serde_json::to_string(&id).unwrap();
+let deserialized = serde_json::from_str::<MyEntityId>(&serialized).unwrap();
+
 ```
 
 ## License
