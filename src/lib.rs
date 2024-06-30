@@ -177,6 +177,7 @@ macro_rules! create_id {
         }
 
         crate::impl_serde!($name);
+        crate::impl_diesel!($name);
     };
 }
 
