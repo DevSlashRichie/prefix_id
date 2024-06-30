@@ -1,5 +1,7 @@
 //! Everything nanoid has but with a prefix.
 
+use diesel::{backend::Backend, serialize::ToSql};
+
 const SAFE: [char; 62] = [
     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i',
     'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B',
@@ -65,9 +67,46 @@ macro_rules! impl_serde {
     ($name:ident) => {};
 }
 
+#[doc(hidden)]
+#[macro_export]
+#[cfg(feature = "diesel")]
+macro_rules! impl_diesel {
+    ($name:ident) => {
+        impl<B> diesel::serialize::ToSql<diesel::sql_types::Text, B> for $name
+        where
+            B: Backend,
+            str: diesel::serialize::ToSql<diesel::sql_types::Text, B>,
+        {
+            fn to_sql<'b>(
+                &'b self,
+                out: &mut diesel::serialize::Output<'b, '_, B>,
+            ) -> diesel::serialize::Result {
+                (self as &str).to_sql(out)
+            }
+        }
+
+        impl<B> diesel::deserialize::FromSql<diesel::sql_types::Text, B> for $name
+        where
+            B: Backend,
+            String: diesel::deserialize::FromSql<diesel::sql_types::Text, B>,
+        {
+            fn from_sql(bytes: <B as Backend>::RawValue<'_>) -> diesel::deserialize::Result<Self> {
+                let s: String =
+                    diesel::deserialize::FromSql::<diesel::sql_types::Text, B>::from_sql(bytes)?;
+                s.parse::<$name>().map_err(|err| err.into())
+            }
+        }
+    };
+}
+
+#[doc(hidden)]
+#[macro_export]
+#[cfg(not(feature = "diesel"))]
+macro_rules! impl_diesel {
+    ($name:ident) => {};
+}
+
 /// Construct a new type that represents an ID with a prefix.
-///
-///
 #[macro_export]
 macro_rules! create_id {
     ($name:ident, $prefix:expr) => {
@@ -75,6 +114,8 @@ macro_rules! create_id {
     };
     ($name:ident, $prefix:expr, $size:expr) => {
         #[derive(Clone, PartialEq, Eq, Hash)]
+        #[cfg_attr(feature = "diesel", derive(diesel::AsExpression, diesel::FromSqlRow))]
+        #[cfg_attr(feature = "diesel", diesel(sql_type = diesel::sql_types::Text))]
         pub struct $name(smol_str::SmolStr);
 
         impl $name {
