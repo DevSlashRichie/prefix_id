@@ -59,20 +59,19 @@ macro_rules! impl_serde {
 }
 
 #[doc(hidden)]
-#[macro_export]
 #[cfg(not(feature = "serde"))]
+#[macro_export]
 macro_rules! impl_serde {
     ($name:ident) => {};
 }
 
-#[doc(hidden)]
-#[macro_export]
 #[cfg(feature = "diesel")]
-macro_rules! impl_diesel {
+#[macro_export]
+macro_rules! __impl_diesel {
     ($name:ident) => {
         impl<B> diesel::serialize::ToSql<diesel::sql_types::Text, B> for $name
         where
-            B: Backend,
+            B: diesel::backend::Backend,
             str: diesel::serialize::ToSql<diesel::sql_types::Text, B>,
         {
             fn to_sql<'b>(
@@ -85,10 +84,12 @@ macro_rules! impl_diesel {
 
         impl<B> diesel::deserialize::FromSql<diesel::sql_types::Text, B> for $name
         where
-            B: Backend,
+            B: diesel::backend::Backend,
             String: diesel::deserialize::FromSql<diesel::sql_types::Text, B>,
         {
-            fn from_sql(bytes: <B as Backend>::RawValue<'_>) -> diesel::deserialize::Result<Self> {
+            fn from_sql(
+                bytes: <B as diesel::backend::Backend>::RawValue<'_>,
+            ) -> diesel::deserialize::Result<Self> {
                 let s: String =
                     diesel::deserialize::FromSql::<diesel::sql_types::Text, B>::from_sql(bytes)?;
                 s.parse::<$name>().map_err(|err| err.into())
@@ -100,8 +101,29 @@ macro_rules! impl_diesel {
 #[doc(hidden)]
 #[macro_export]
 #[cfg(not(feature = "diesel"))]
-macro_rules! impl_diesel {
+macro_rules! __impl_diesel {
     ($name:ident) => {};
+}
+
+#[doc(hidden)]
+#[macro_export]
+#[cfg(feature = "diesel")]
+macro_rules! __impl_diesel_macros {
+    ($name:ident) => {
+        #[derive(diesel::AsExpression, diesel::FromSqlRow, Clone, PartialEq, Eq, Hash)]
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        pub struct $name(smol_str::SmolStr);
+    };
+}
+
+#[doc(hidden)]
+#[macro_export]
+#[cfg(not(feature = "diesel"))]
+macro_rules! __impl_diesel_macros {
+    ($name:ident) => {
+        #[derive(Clone, PartialEq, Eq, Hash)]
+        pub struct $name(smol_str::SmolStr);
+    };
 }
 
 /// Construct a new type that represents an ID with a prefix.
@@ -111,10 +133,7 @@ macro_rules! create_id {
         create_id!($name, $prefix, 21);
     };
     ($name:ident, $prefix:expr, $size:expr) => {
-        #[derive(Clone, PartialEq, Eq, Hash)]
-        #[cfg_attr(feature = "diesel", derive(diesel::AsExpression, diesel::FromSqlRow))]
-        #[cfg_attr(feature = "diesel", diesel(sql_type = diesel::sql_types::Text))]
-        pub struct $name(smol_str::SmolStr);
+        $crate::__impl_diesel_macros!($name);
 
         impl $name {
             pub fn new() -> Self {
@@ -176,8 +195,8 @@ macro_rules! create_id {
             }
         }
 
-        crate::impl_serde!($name);
-        crate::impl_diesel!($name);
+        $crate::impl_serde!($name);
+        $crate::__impl_diesel!($name);
     };
 }
 
